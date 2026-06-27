@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Close from "../assets/photo/Close.png";
 import ConfirmModal from "./ConfirmModal";
 
@@ -30,7 +30,6 @@ const ViewSchedule = ({ show, onClose, yearSection }) => {
     "1st Semester 2025-2026",
   );
 
-  // Separate state for each semester
   const [firstSemesterRows, setFirstSemesterRows] = useState(
     Array(10)
       .fill(null)
@@ -42,9 +41,84 @@ const ViewSchedule = ({ show, onClose, yearSection }) => {
       .map(() => ({ ...emptyRow })),
   );
 
+  const normalizeRow = (row = {}) => ({
+    code: row.code ?? row.subjectCode ?? row.subject ?? "",
+    unit: row.unit ?? row.units ?? "",
+    hours: row.hours ?? row.credits ?? row.creditHours ?? "",
+    time: row.time ?? row.scheduleTime ?? "",
+    day: row.day ?? row.days ?? "",
+    room: row.room ?? row.location ?? "",
+    section: row.section ?? yearSection ?? "",
+    instructor:
+      row.instructor ?? row.instructorName ?? row.faculty ?? row.instructor_name ?? "",
+  });
+
+  useEffect(() => {
+    if (!show || !yearSection) return;
+
+    const firstEmpty = Array(10).fill(null).map(() => ({ ...emptyRow }));
+    const secondEmpty = Array(10).fill(null).map(() => ({ ...emptyRow }));
+
+    const sectionParam = encodeURIComponent(yearSection);
+    const semesterParam = encodeURIComponent(selectedSemester);
+    const url = `/bridge/schedule/${sectionParam}?semester=${semesterParam}`;
+
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        console.debug("ViewSchedule fetch", { url, data });
+
+        const payload = data?.data ?? data;
+        let firstSchedule = [];
+        let secondSchedule = [];
+
+        if (Array.isArray(payload)) {
+          if (selectedSemester.toLowerCase().startsWith("1st")) {
+            firstSchedule = payload;
+          } else {
+            secondSchedule = payload;
+          }
+        } else if (payload && typeof payload === "object") {
+          firstSchedule =
+            payload["1st Semester"] ??
+            payload["First Semester"] ??
+            payload.firstSemester ??
+            payload.first ??
+            [];
+          secondSchedule =
+            payload["2nd Semester"] ??
+            payload["Second Semester"] ??
+            payload.secondSemester ??
+            payload.second ??
+            [];
+
+          if (!firstSchedule.length && !secondSchedule.length) {
+            const maybeSem = payload["semester"]?.toString()?.toLowerCase();
+            if (maybeSem && Array.isArray(payload.rows)) {
+              if (maybeSem.includes("1st")) {
+                firstSchedule = payload.rows;
+              } else {
+                secondSchedule = payload.rows;
+              }
+            }
+          }
+        }
+
+        setFirstSemesterRows(
+          firstSchedule.slice(0, 10).map(normalizeRow).concat(firstEmpty).slice(0, 10),
+        );
+        setSecondSemesterRows(
+          secondSchedule.slice(0, 10).map(normalizeRow).concat(secondEmpty).slice(0, 10),
+        );
+      })
+      .catch((error) => {
+        console.debug("ViewSchedule fetch error", { url, error });
+      });
+  }, [show, yearSection, selectedSemester]);
+
   if (!show) return null;
 
-  // Decide which rows to display
+  
   const rows =
     selectedSemester === "1st Semester 2025-2026"
       ? firstSemesterRows

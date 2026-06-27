@@ -11,6 +11,116 @@ function Dashboard() {
   const [totalIrregular, setTotalIrregular] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [lookupStudentName, setLookupStudentName] = useState("");
+  const [lookupStudentId, setLookupStudentId] = useState("");
+  const [lookupYearSection, setLookupYearSection] = useState("");
+  const [lookupAllGrades, setLookupAllGrades] = useState([]);
+  const [lookupGrades, setLookupGrades] = useState([]);
+  const [lookupSemesterOptions, setLookupSemesterOptions] = useState([]);
+  const [lookupSelectedSemester, setLookupSelectedSemester] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState("");
+
+  const buildSemLabel = (grade) => {
+    const raw = grade.semester || "";
+    const sy = grade.schoolYear || grade.school_year || "";
+
+    if (/semester/i.test(raw) && /\d{4}/.test(raw)) return raw;
+
+    const ordinals = { "1": "1st", "2": "2nd", "3": "3rd" };
+    const semOrd = ordinals[String(raw).trim()] || `${raw}`;
+
+    if (!sy || sy.toString().trim() === "") return "Credited";
+    return `${semOrd} Semester ${sy}`;
+  };
+
+  const semesterSortKey = (label) => {
+    if (label === "Credited") return -1;
+    const match = label.match(/(\d+)(?:st|nd|rd|th)?\s+Semester\s+(\d{4})/i);
+    if (!match) return 0;
+    return parseInt(match[2]) * 10 + parseInt(match[1]);
+  };
+
+  const getSemesterOptions = (grades) => {
+    const semMap = new Map();
+    grades.forEach((grade) => {
+      const label = buildSemLabel(grade);
+      if (label) semMap.set(label, semesterSortKey(label));
+    });
+
+    const sorted = [...semMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([label]) => label);
+
+    if (!sorted.includes("Credited")) sorted.push("Credited");
+    return sorted;
+  };
+
+  const getGradesForSemester = (grades, semester) =>
+    grades.filter((grade) => buildSemLabel(grade) === semester);
+
+  const loadStudentById = (id) => {
+    const studentId = String(id || "").trim();
+    if (!studentId) return;
+
+    setLookupLoading(true);
+    setLookupError("");
+
+    fetch(`/bridge/student/${encodeURIComponent(studentId)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          const student = data.data?.student || {};
+          const grades = data.data?.grades || [];
+          const studentNumber =
+            student.number || student.student_no || student.student_number || studentId;
+          const studentName =
+            student.name || `${student.first_name || ""} ${student.last_name || ""}`.trim();
+
+          setLookupStudentName(studentName);
+          setLookupStudentId(studentNumber);
+          setLookupYearSection(student.section || "");
+          setLookupAllGrades(grades);
+
+          const semOptions = getSemesterOptions(grades);
+          setLookupSemesterOptions(semOptions);
+          const selected = semOptions[0] || "";
+          setLookupSelectedSemester(selected);
+          setLookupGrades(getGradesForSemester(grades, selected));
+        } else {
+          setLookupError("Student information not found.");
+          setLookupGrades([]);
+          setLookupAllGrades([]);
+          setLookupSemesterOptions([]);
+        }
+      })
+      .catch(() => {
+        setLookupError("Failed to load student grades.");
+        setLookupGrades([]);
+        setLookupAllGrades([]);
+        setLookupSemesterOptions([]);
+      })
+      .finally(() => setLookupLoading(false));
+  };
+
+  const handleSelectStudent = (student) => {
+    const studentId =
+      student.number || student.student_no || student.student_number || student.id;
+    if (!studentId) return;
+    loadStudentById(studentId);
+  };
+
+  const handleStudentIdKeyDown = (e) => {
+    if (e.key === "Enter") {
+      loadStudentById(lookupStudentId);
+    }
+  };
+
+  useEffect(() => {
+    if (!lookupSelectedSemester) return;
+    setLookupGrades(getGradesForSemester(lookupAllGrades, lookupSelectedSemester));
+  }, [lookupAllGrades, lookupSelectedSemester]);
+
   useEffect(() => {
     fetch('/bridge/dashboard')
       .then(r => r.json())
@@ -107,7 +217,8 @@ function Dashboard() {
                     return filteredStudents.map((s, i) => (
                       <div
                         key={i}
-                        className="grid grid-cols-[1fr_1fr_1fr_1fr] text-sm h-8 items-center border-b border-[#D9D9D9]/50"
+                        onClick={() => handleSelectStudent(s)}
+                        className="grid grid-cols-[1fr_1fr_1fr_1fr] text-sm h-8 items-center border-b border-[#D9D9D9]/50 cursor-pointer hover:bg-gray-100"
                       >
                         <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center">
                           {s.number ?? s.student_no ?? s.student_number ?? s.id ?? "—"}
@@ -119,7 +230,18 @@ function Dashboard() {
                           {s.status ?? "—"}
                         </span>
                         <span className="px-2 h-full flex items-center justify-center">
-                          <Link to="/viewGrade" state={{ student: s, from: 'dashboard' }} className="text-sm text-blue-600">View</Link>
+                          {(() => {
+                            const studentId = s.number ?? s.student_no ?? s.student_number ?? s.id ?? '';
+                            return (
+                              <Link
+                                to={`/viewGrade?id=${encodeURIComponent(studentId)}`}
+                                state={{ student: s, from: 'dashboard', studentId }}
+                                className="text-sm text-blue-600"
+                              >
+                                View
+                              </Link>
+                            );
+                          })()}
                         </span>
                       </div>
                     ));
@@ -146,23 +268,32 @@ function Dashboard() {
               <input
                 type="text"
                 placeholder="Student Name:"
+                value={lookupStudentName}
+                onChange={(e) => setLookupStudentName(e.target.value)}
                 className="border rounded-md p-1.5 text-sm w-full"
               />
               <input
                 type="text"
                 placeholder="Student ID:"
+                value={lookupStudentId}
+                onChange={(e) => setLookupStudentId(e.target.value)}
+                onKeyDown={handleStudentIdKeyDown}
                 className="border rounded-md p-1.5 text-sm w-full"
               />
               <div className="flex gap-2">
                 <input
                   type="text"
                   placeholder="Year Level:"
-                  className="border rounded-md p-1.5 text-sm w-1/2"
+                  value=""
+                  readOnly
+                  className="border rounded-md p-1.5 text-sm w-1/2 bg-[#F5F5F5]"
                 />
                 <input
                   type="text"
                   placeholder="Section:"
-                  className="border rounded-md p-1.5 text-sm w-1/2"
+                  value={lookupYearSection}
+                  readOnly
+                  className="border rounded-md p-1.5 text-sm w-1/2 bg-[#F5F5F5]"
                 />
               </div>
 
@@ -170,48 +301,52 @@ function Dashboard() {
               <div className="border border-[#D9D9D9]/50 rounded-md overflow-hidden">
                 {/* Subject Table Header */}
                 <div className="grid grid-cols-[80px_1fr_60px_100px] bg-[#1C6100] text-white text-sm text-center">
-                  <span className="px-2 py-2 border-r border-white/30">
-                    Code
-                  </span>
-                  <span className="px-2 py-2 border-r border-white/30">
-                    Subject Title
-                  </span>
-                  <span className="px-2 py-2 border-r border-white/30">
-                    Units
-                  </span>
+                  <span className="px-2 py-2 border-r border-white/30">Code</span>
+                  <span className="px-2 py-2 border-r border-white/30">Subject Title</span>
+                  <span className="px-2 py-2 border-r border-white/30">Units</span>
                   <span className="px-2 py-2">Status</span>
                 </div>
-                {/* Sample Rows */}
-                <div className="grid grid-cols-[80px_1fr_60px_100px] text-sm h-8 items-center border-b border-[#D9D9D9]/50">
-                  <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center">
-                    CC106
-                  </span>
-                  <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center truncate"></span>
-                  <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center justify-center"></span>
-                  <span className="px-2 h-full flex items-center justify-center text-green-600">
-                    Completed
-                  </span>
-                </div>
-                <div className="grid grid-cols-[80px_1fr_60px_100px] text-sm h-8 items-center border-b border-[#D9D9D9]/50">
-                  <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center"></span>
-                  <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center truncate"></span>
-                  <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center justify-center"></span>
-                  <span className="px-2 h-full flex items-center justify-center text-red-500">
-                    Missing
-                  </span>
-                </div>
-                {/* Empty Rows */}
-                {[...Array(4)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="grid grid-cols-[80px_1fr_60px_100px] text-sm h-8 items-center border-b border-[#D9D9D9]/50"
-                  >
-                    <span className="px-2 border-r border-[#D9D9D9]/50 h-full" />
-                    <span className="px-2 border-r border-[#D9D9D9]/50 h-full" />
-                    <span className="px-2 border-r border-[#D9D9D9]/50 h-full" />
-                    <span className="px-2 h-full" />
+
+                {lookupLoading ? (
+                  <div className="py-8 text-center text-gray-500">Loading grades…</div>
+                ) : lookupGrades.length > 0 ? (
+                  lookupGrades.map((grade, index) => {
+                    const statusRaw = (grade.status || "").toLowerCase();
+                    const passed = ["completed", "credited", "passed"].includes(statusRaw);
+                    const statusLabel = passed ? "Completed" : "Incomplete";
+                    const statusColor = passed ? "text-green-600" : "text-red-500";
+                    const code = grade.code || grade.subject_code || "";
+                    const title = grade.title || grade.subject_title || grade.subject || "";
+                    const units = grade.units ?? grade.unit ?? "";
+
+                    return (
+                      <div
+                        key={index}
+                        className="grid grid-cols-[80px_1fr_60px_100px] text-sm h-8 items-center border-b border-[#D9D9D9]/50"
+                      >
+                        <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center">
+                          {code}
+                        </span>
+                        <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center truncate">
+                          {title}
+                        </span>
+                        <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center justify-center">
+                          {units}
+                        </span>
+                        <span className={`px-2 h-full flex items-center justify-center ${statusColor}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+                    <p className="text-sm font-semibold">No grades found</p>
+                    {lookupError ? (
+                      <p className="text-xs mt-1 text-red-500">{lookupError}</p>
+                    ) : null}
                   </div>
-                ))}
+                )}
               </div>
             </div>
 

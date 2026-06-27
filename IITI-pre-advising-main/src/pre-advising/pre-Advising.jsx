@@ -1,18 +1,33 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-// adjust paths based on your project structure
+
 import adminLogo from "../dashboard/dashboardLOGO/adminLogo.png";
 import book from "../assets/photo/BOOK.png";
 
+const defaultLevels = [
+  { year_level: 1, name: "BSIT 1st Year", section_count: 0 },
+  { year_level: 2, name: "BSIT 2nd Year", section_count: 0 },
+  { year_level: 3, name: "BSIT 3rd Year", section_count: 0 },
+  { year_level: 4, name: "BSIT 4th Year", section_count: 0 },
+  { year_level: "irregular", name: "Irregular Students", student_count: 0 },
+];
+
 const PreAdvising = () => {
-  const years = [
-    { title: "BSIT 1st Year" },
-    { title: "BSIT 2nd Year" },
-    { title: "BSIT 3rd Year" },
-    { title: "BSIT 4th Year" },
-    { title: "Irregular Students" },
-  ];
+  const [yearLevels, setYearLevels] = useState([]);
+
+  useEffect(() => {
+    fetch("/bridge/year-levels")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) {
+          setYearLevels(Array.isArray(data.data) ? data.data : []);
+        }
+      })
+      .catch(() => {
+        setYearLevels([]);
+      });
+  }, []);
 
   return (
     <div className="bg-gray-100 h-full pl-[55%] md:pl-88 font-RB w-full">
@@ -36,32 +51,46 @@ const PreAdvising = () => {
       {/* CONTENT */}
       <main className="px-5 sm:px-10 py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 max-w-255 mx-auto">
+          {(yearLevels.length > 0 ? yearLevels : defaultLevels)
+            .slice()
+            .sort((a, b) => {
+              const aIrregular = a.year_level === "irregular";
+              const bIrregular = b.year_level === "irregular";
+              if (aIrregular !== bIrregular) return aIrregular ? 1 : -1;
+              if (typeof a.year_level === "number" && typeof b.year_level === "number") {
+                return a.year_level - b.year_level;
+              }
+              return String(a.year_level).localeCompare(String(b.year_level));
+            })
+            .map((item, index) => {
+              const isIrregular = item.year_level === "irregular";
+              const countLabel = isIrregular
+                ? `No. of Students: ${item.student_count ?? 0}`
+                : `No. of Sections: ${item.section_count ?? 0}`;
 
-          {years.map((item, index) => (
-            <Link
-              to="/pre-advising-list"
-              state={item.title === 'Irregular Students' ? { irregular: true } : {}}
-              key={index}
-            >
-              <div className="bg-[#1C6100] w-full h-41.25 rounded-[15px] p-5 relative text-white shadow-lg hover:bg-green-800 transition-all duration-300 cursor-pointer">
-                
-                <h2 className="text-[25px] font-bold">
-                  {item.title}
-                </h2>
-
-                <p className="text-[14px] mt-1 opacity-80">
-                  {item.title === 'Irregular Students' ? 'No. of Students' : 'No. of Section'}
-                </p>
-
-                <img
-                  src={book}
-                  alt="book"
-                  className="absolute bottom-4 right-4 w-10 h-10 object-contain"
-                />
-              </div>
-            </Link>
-          ))}
-
+              return (
+                <Link
+                  to="/pre-advising-list"
+                  state={
+                    isIrregular
+                      ? { irregular: true, yearTitle: item.name }
+                      : { yearTitle: item.name }
+                  }
+                  key={index}
+                  className="block"
+                >
+                  <div className="bg-[#1C6100] w-full h-41.25 rounded-[15px] p-5 relative text-white shadow-lg hover:bg-green-800 transition-all duration-300 cursor-pointer">
+                    <h2 className="text-[25px] font-bold">{item.name}</h2>
+                    <p className="text-[14px] mt-1 opacity-80">{countLabel}</p>
+                    <img
+                      src={book}
+                      alt="book"
+                      className="absolute bottom-4 right-4 w-10 h-10 object-contain"
+                    />
+                  </div>
+                </Link>
+              );
+            })}
         </div>
       </main>
     </div>

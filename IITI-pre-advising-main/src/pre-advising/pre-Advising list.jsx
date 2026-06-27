@@ -36,12 +36,10 @@ const PreAdvisingList = () => {
             <img src={arrow} alt="Back" className="w-4 h-4" />
           </Link>
             <div className="flex items-center gap-3">
-            <span className="font-bold text-black/50">BSIT 1st Year</span>
-            <img src={next} alt="Next" className="w-3 h-3 opacity-50" />
-            <span className="font-bold text-black/50">Sections</span>
-            <img src={next} alt="Next" className="w-3 h-3" />
-            <span className="font-bold text-black">{isIrregular ? 'Irregular' : section}</span>
-          </div>
+              <span className="font-bold text-black/50">Pre-Advising</span>
+              <img src={next} alt="Next" className="w-3 h-3 opacity-50" />
+              <span className="font-bold text-black">{location.state?.yearTitle ?? 'Students'}</span>
+            </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -83,7 +81,14 @@ const PreAdvisingList = () => {
   filteredStudents.map((student, index) => (
     <Link 
       key={index} 
-      to="/pre-advising-1st-sem" 
+      to={`/viewGrade?id=${encodeURIComponent(student.number ?? student.student_no ?? student.student_number ?? student.id ?? '')}`} 
+      state={{
+        student,
+        studentId: student.number ?? student.student_no ?? student.student_number ?? student.id ?? '',
+        from: 'pre-advising',
+        yearTitle: location.state?.yearTitle,
+        irregular: location.state?.irregular ?? false,
+      }}
       className="block no-underline"
     >
       <div className="flex border bg-[#D9D9D9]/50 border-black hover:bg-gray-200 cursor-pointer h-6 items-center px-2 text-sm transition-colors">

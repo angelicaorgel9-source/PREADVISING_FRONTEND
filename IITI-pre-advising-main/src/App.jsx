@@ -1,6 +1,6 @@
 import "./App.css";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Suspense, lazy } from "react";
 
 import Login from "./login/login.jsx";
 import Nav from "./navbar/nav.jsx";
@@ -26,6 +26,29 @@ import PreAdvisingSecondSem from "./pre-advising/pre-AdvisingSecondSem.jsx";
 
 // Lazy loaded dashboard
 const Dashboard = lazy(() => import("./dashboard/dashboard.jsx"));
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 40, color: '#666' }}>
+          Something went wrong loading this page. Please go back and try again.
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function App() {
   return (
@@ -162,7 +185,9 @@ function App() {
           element={
             <>
               <Nav />
-              <ViewGrade />
+              <ErrorBoundary>
+                <ViewGrade />
+              </ErrorBoundary>
             </>
           }
         />
