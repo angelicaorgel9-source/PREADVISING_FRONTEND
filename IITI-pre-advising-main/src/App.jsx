@@ -12,6 +12,7 @@ import ViewGrade from "./yearLevel/viewGrade/viewGrade.jsx";
 
 import PreAdvising from "./pre-advising/pre-Advising.jsx";
 import PreAdvisingList from "./pre-advising/pre-Advising list.jsx";
+import PreAdvisingSections from "./pre-advising/sections.jsx";
 
 import Schedule from "./schedule/schedule.jsx";
 import ViewSection from "./schedule/viewSection.jsx";
@@ -100,6 +101,17 @@ function App() {
             </>
           }
         />
+
+          {/* Pre-Advising Sections (shows sections for selected year) */}
+          <Route
+            path="/pre-advising-sections"
+            element={
+              <>
+                <Nav />
+                <PreAdvisingSections />
+              </>
+            }
+          />
 
 
 

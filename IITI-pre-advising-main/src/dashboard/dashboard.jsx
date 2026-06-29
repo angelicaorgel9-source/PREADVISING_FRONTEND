@@ -169,93 +169,127 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* TOP RIGHT - Student Management */}
-            <div className="border rounded-lg p-3.5">
-              <h2 className="border-b pb-1.5 text-sm font-semibold text-gray-500 mb-3">
-                Student Management
-              </h2>
+            {/* TOP RIGHT - Two separate stacked boxes */}
+            <div className="flex flex-col h-full gap-2">
 
-              {/* Search */}
-              <div className="flex gap-2 mb-3">
-                <div className="flex items-center w-2/3 border rounded-md px-2 py-1">
-                  <input
-                    type="text"
-                    className="text-sm outline-none w-full"
-                    placeholder="Search Student"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                  <img src={search} alt="search" className="w-4 h-4 ml-2" />
+              {/* Box 1: Upload Grades - own separate box */}
+              <label
+                htmlFor="uploadGrades"
+                className="flex items-center justify-between w-full bg-[#1C6100] text-white text-sm font-semibold px-4 py-4 rounded-md cursor-pointer hover:bg-green-800 active:scale-95 flex-shrink-0"
+              >
+                <span>Upload Grades</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="16 16 12 12 8 16" />
+                  <line x1="12" y1="12" x2="12" y2="21" />
+                  <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+                </svg>
+                <input
+                  id="uploadGrades"
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    try {
+                      const res = await fetch("/bridge/upload-grades", {
+                        method: "POST",
+                        body: formData,
+                      });
+                      const data = await res.json();
+                      if (data.success) alert(data.message);
+                      else alert("Upload failed: " + data.error);
+                    } catch (err) {
+                      alert("Upload error: " + err.message);
+                    }
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+
+              {/* Box 2: Student Management */}
+              <div className="border rounded-lg p-3.5 flex flex-col flex-1">
+                <h2 className="border-b pb-1.5 text-sm font-semibold text-gray-500 mb-3">
+                  Student Management
+                </h2>
+
+                {/* Search */}
+                <div className="flex gap-2 mb-3">
+                  <div className="flex items-center w-2/3 border rounded-md px-2 py-1">
+                    <input
+                      type="text"
+                      className="text-sm outline-none w-full"
+                      placeholder="Search Student"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    <img src={search} alt="search" className="w-4 h-4 ml-2" />
+                  </div>
+                  <button className="border flex-1 rounded-md px-4 py-1 text-sm text-gray-500 whitespace-nowrap"></button>
+                  <button className="border flex-1 rounded-md px-4 py-1 text-sm text-gray-500 whitespace-nowrap"></button>
                 </div>
-                <button className="border flex-1 rounded-md px-4 py-1 text-sm text-gray-500 whitespace-nowrap"></button>
-                <button className="border flex-1 rounded-md px-4 py-1 text-sm text-gray-500 whitespace-nowrap"></button>
-              </div>
 
-              {/* Table */}
-              <div className="border border-[#D9D9D9]/50 rounded-md overflow-hidden">
-                {/* Table Header */}
-                <div className="grid grid-cols-[1fr_1fr_1fr_1fr] bg-[#1C6100] text-white text-sm">
-                  <span className="px-2 py-2 border-r border-white/30">
-                    Student Number
-                  </span>
-                  <span className="px-2 py-2 border-r border-white/30 text-center">
-                    Name
-                  </span>
-                  <span className="px-2 py-2 border-r border-white/30 text-center">
-                    Status
-                  </span>
-                  <span className="px-2 py-2"></span>
-                </div>
-                {(() => {
-                  const filteredStudents = (students || []).filter(s =>
-                    (s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim()).toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    (s.number ?? s.student_no ?? s.student_number ?? '').toString().includes(searchQuery) ||
-                    (s.status ?? '').toLowerCase().includes(searchQuery.toLowerCase())
-                  );
+                {/* Table */}
+                <div className="border border-[#D9D9D9]/50 rounded-md overflow-hidden">
+                  <div className="grid grid-cols-[1fr_1fr_1fr_1fr] bg-[#1C6100] text-white text-sm">
+                    <span className="px-2 py-2 border-r border-white/30">Student Number</span>
+                    <span className="px-2 py-2 border-r border-white/30 text-center">Name</span>
+                    <span className="px-2 py-2 border-r border-white/30 text-center">Status</span>
+                    <span className="px-2 py-2"></span>
+                  </div>
+                  {(() => {
+                    const filteredStudents = (students || []).filter((s) =>
+                      (s.name || `${s.first_name || ''} ${s.last_name || ''}`.trim()).toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      (s.number ?? s.student_no ?? s.student_number ?? '').toString().includes(searchQuery) ||
+                      (s.status ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+                    );
 
-                  if (filteredStudents.length > 0) {
-                    return filteredStudents.map((s, i) => (
-                      <div
-                        key={i}
-                        onClick={() => handleSelectStudent(s)}
-                        className="grid grid-cols-[1fr_1fr_1fr_1fr] text-sm h-8 items-center border-b border-[#D9D9D9]/50 cursor-pointer hover:bg-gray-100"
-                      >
-                        <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center">
-                          {s.number ?? s.student_no ?? s.student_number ?? s.id ?? "—"}
-                        </span>
-                        <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center justify-center">
-                          {s.name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "-"}
-                        </span>
-                        <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center justify-center">
-                          {s.status ?? "—"}
-                        </span>
-                        <span className="px-2 h-full flex items-center justify-center">
-                          {(() => {
-                            const studentId = s.number ?? s.student_no ?? s.student_number ?? s.id ?? '';
-                            return (
-                              <Link
-                                to={`/viewGrade?id=${encodeURIComponent(studentId)}`}
-                                state={{ student: s, from: 'dashboard', studentId }}
-                                className="text-sm text-blue-600"
-                              >
-                                View
-                              </Link>
-                            );
-                          })()}
-                        </span>
+                    if (filteredStudents.length > 0) {
+                      return filteredStudents.map((s, i) => (
+                        <div
+                          key={i}
+                          onClick={() => handleSelectStudent(s)}
+                          className="grid grid-cols-[1fr_1fr_1fr_1fr] text-sm h-8 items-center border-b border-[#D9D9D9]/50 cursor-pointer hover:bg-gray-100"
+                        >
+                          <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center">
+                            {s.number ?? s.student_no ?? s.student_number ?? s.id ?? "—"}
+                          </span>
+                          <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center justify-center">
+                            {s.name || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "-"}
+                          </span>
+                          <span className="px-2 border-r border-[#D9D9D9]/50 h-full flex items-center justify-center">
+                            {s.status ?? "—"}
+                          </span>
+                          <span className="px-2 h-full flex items-center justify-center">
+                            {(() => {
+                              const studentId = s.number ?? s.student_no ?? s.student_number ?? s.id ?? '';
+                              return (
+                                <Link
+                                  to={`/viewGrade?id=${encodeURIComponent(studentId)}`}
+                                  state={{ student: s, from: 'dashboard', studentId }}
+                                  className="text-sm text-blue-600"
+                                >
+                                  View
+                                </Link>
+                              );
+                            })()}
+                          </span>
+                        </div>
+                      ));
+                    }
+
+                    return (
+                      <div className="flex flex-col items-center justify-center py-4 text-gray-400">
+                        <p className="text-sm font-semibold">No students found</p>
+                        {searchQuery && (
+                          <p className="text-xs mt-1">No results for "<span className="text-gray-600">{searchQuery}</span>"</p>
+                        )}
                       </div>
-                    ));
-                  }
-
-                  return (
-                    <div className="flex flex-col items-center justify-center py-4 text-gray-400">
-                      <p className="text-sm font-semibold">No students found</p>
-                      {searchQuery && (
-                        <p className="text-xs mt-1">No results for "<span className="text-gray-600">{searchQuery}</span>"</p>
-                      )}
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           </div>

@@ -70,11 +70,11 @@ const PreAdvising = () => {
 
               return (
                 <Link
-                  to="/pre-advising-list"
+                  to={isIrregular ? "/pre-advising-list" : "/pre-advising-sections"}
                   state={
                     isIrregular
                       ? { irregular: true, yearTitle: item.name }
-                      : { yearTitle: item.name }
+                      : { yearLevel: item.year_level, yearTitle: item.name }
                   }
                   key={index}
                   className="block"
